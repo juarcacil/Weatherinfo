@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Emergency Broadcast System Simulator</title>
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.9.2/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.9.2/mapbox-gl.js"></script>
+<style>
+  body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(to bottom, #222, #444);
+    color: #eee;
+    margin: 0;
+    overflow-y: auto;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h1 {
+    color: #f00;
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2.5em;
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+h2 {
+    color: #ff8c00;
+    margin-bottom: 15px;
+}
+
+.options-menu {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: #282828;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+}
+
+.options-menu button {
+    display: block;
+    width: 100%;
+    background-color: #383838;
+    color: #eee;
+    padding: 12px 20px;
+    border: none;
+    cursor: pointer;
+    margin-bottom: 8px;
+    border-radius: 5px;
+    transition: background-color 0.2s ease;
+}
+
+.options-menu button:hover {
+    background-color: #505050;
+}
+
+.report-form {
+    background-color: #282828;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    margin-bottom: 20px;
+}
+
+.report-form label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.report-form input, 
+.report-form textarea,
+.report-form select {
+    width: calc(100% - 22px);
+    padding: 10px;
+    margin-bottom: 15px;
+    background-color: #383838;
+    color: #eee;
+    border: 1px solid #555;
+    border-radius: 5px;
+}
+
+.report-form select {
+    appearance: none;
+    padding-right: 30px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23eee'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px;
+}
+
+.report-form button[type="submit"] {
+    background-color: #dc143c;
+    color: #fff;
+    padding: 12px 20px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.2s ease;
+    font-weight: bold;
+}
+
+.report-form button[type="submit"]:hover {
+    background-color: #b22222;
+}
+
+#map {
+    height: calc(100vh - 100px);
+    margin-top: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+#options, 
+#weatherForm, 
+#policeForm, 
+#nationalAlertForm {
+    display: none;
+}
+
+.alert-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+
+.alert-overlay div {
+    background-color: #f00;
+    color: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+
+#reportLog {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+#logEntries {
+    list-style: none;
+    padding: 0;
+}
+
+#logEntries li {
+    background-color: #383838;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 5px;
+}
+
+#aiResponseSection {
+    margin-top: 20px;
+    background-color: #282828;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+#aiResponse {
+    white-space: pre-line; /* Preserve line breaks */
+}
+</style>
+</style>
+</head>
+<body>
+
+<div class="container">
+    <div class="options-menu">
+        <button onclick="toggleOptions()">Report Options</button>
+        <div id="options">
+            <button onclick="showForm('weatherForm')">Weather Report</button>
+            <button onclick="showForm('policeForm')">Police Report</button>
+            <button onclick="showForm('nationalAlertForm')">National Alert</button>
+            <button onclick="showReportLog()">Report Log</button>
+        </div>
+    </div>
+
+    <h1>Emergency Broadcast System Simulator</h1>
+
+    <div id="aiResponseSection">
+        <h2>Responses</h2>
+        <div id="aiResponse"></div>
+    </div>
+
+    <div id="weatherForm" class="report-form">
+        <h2>Weather Report</h2>
+        <form onsubmit="submitWeatherReport(event)">
+            <label for="weatherLocation">Location:</label>
+            <input type="text" id="weatherLocation" name="location" required><br><br>
+
+            <label for="weatherType">Weather Type:</label>
+            <select id="weatherType" name="weatherType" required>
+                <option value="tornado">Tornado Warning</option>
+                <option value="hurricane">Hurricane Warning</option>
+                <option value="flood">Flood Warning</option>
+                <option value="blizzard">Blizzard Warning</option>
+                <option value="thunderstorm">Severe Thunderstorm Warning</option>
+            </select><br><br>
+
+            <label for="severity">Severity (1-5):</label>
+            <input type="number" id="severity" name="severity" min="1" max="5" required><br><br>
+
+            <label for="weatherDetails">Details:</label>
+            <textarea id="weatherDetails" name="details"></textarea><br><br>
+
+            <button type="submit">Send Report</button>
+        </form>
+    </div>
+
+    <div id="policeForm" class="report-form">
+        <h2>Police Report</h2>
+        <form onsubmit="submitPoliceReport(event)">
+            <label for="incidentType">Incident Type:</label>
+            <select id="incidentType" name="incidentType" required>
+                <option value="robbery">Robbery</option>
+                <option value="accident">Traffic Accident</option>
+                <option value="suspicious">Suspicious Activity</option>
+                <option value="disturbance">Disturbance</option>
+                <option value="other">Other</option>
+            </select><br><br>
+
+            <label for="policeLocation">Location:</label>
+            <input type="text" id="policeLocation" name="location" required><br><br>
+
+            <label for="suspectDescription">Suspect Description (if applicable):</label>
+            <textarea id="suspectDescription" name="suspectDescription"></textarea><br><br>
+
+            <label for="policeDetails">Incident Details:</label>
+            <textarea id="policeDetails" name="details" required></textarea><br><br>
+
+            <button type="submit">File Report</button>
+        </form>
+    </div>
+
+    <div id="nationalAlertForm" class="report-form">
+        <h2>National Alert</h2>
+        <form onsubmit="submitNationalAlert(event)">
+            <label for="alertType">Alert Type:</label>
+            <select id="alertType" name="alertType" required>
+                <option value="tornado">Tornado Warning</option>
+                <option value="hurricane">Hurricane Warning</option>
+                <option value="tsunami">Tsunami Warning</option>
+                <option value="earthquake">Earthquake Warning</option>
+                <option value="wildfire">Wildfire Warning</option>
+            </select><br><br>
+
+            <label for="affectedAreas">Affected Areas:</label>
+            <input type="text" id="affectedAreas" name="affectedAreas" required><br><br>
+
+            <label for="nationalSeverity">Severity (1-5):</label>
+            <input type="number" id="nationalSeverity" name="severity" min="1" max="5" required><br><br>
+
+            <label for="nationalDetails">Details:</label>
+            <textarea id="nationalDetails" name="details" required></textarea><br><br>
+
+            <button type="submit">Issue Alert</button>
+        </form>
+    </div>
+
+    <div id="reportLog" class="report-form" style="display:none;">
+        <h2>Report Log</h2>
+        <div id="logEntries"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="alertOverlay" class="alert-overlay">
+        <div id="alertMessage"></div>
+    </div>
+</div>
+
+<script>
+mapboxgl.accessToken = 'pk.eyJ1Ijoic3BlY3Rhcm9iaW4iLCJhIjoiY20zZXQ3MzEwMGZtdDJqcTd1ZWNrOHl4diJ9.HnyYMTr_2MLxbkDs-gLlpA'; // Replace with your actual access token
+
+const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/dark-v10',
+    center: [-96, 37.8],
+    zoom: 3
+});
+
+let reportData = [];
+
+function toggleOptions() {
+    const optionsDiv = document.getElementById("options");
+    optionsDiv.style.display = optionsDiv.style.display === "none" ? "block" : "none";
+}
+
+function showForm(formId) {
+    const forms = document.querySelectorAll('.report-form');
+    forms.forEach(form => form.style.display = 'none');
+    document.getElementById(formId).style.display = 'block';
+    document.getElementById('options').style.display = 'none';
+}
+
+function showReportLog() {
+    const forms = document.querySelectorAll('.report-form');
+    forms.forEach(form => form.style.display = 'none');
+    document.getElementById('options').style.display = 'none';
+    document.getElementById('reportLog').style.display = 'block';
+    displayReportLog();
+}
+
+function submitWeatherReport(event) {
+    event.preventDefault();
+
+    const location = document.getElementById('weatherLocation').value;
+    const type = document.getElementById('weatherType').value;
+    const severity = document.getElementById('severity').value;
+    const details = document.getElementById('weatherDetails').value;
+
+    const report = {
+        type: 'weather',
+        location: location,
+        weatherType: type,
+        severity: severity,
+        details: details,
+        timestamp: new Date()
+    };
+
+    reportData.push(report);
+    displayReportLog();
+    geocodeAndAddMarker(location);
+    generateAIResponse(report);
+    alert('Weather report submitted!');
+    event.target.reset();
+}
+
+function submitPoliceReport(event) {
+    event.preventDefault();
+
+    const incidentType = document.getElementById('incidentType').value;
+    const location = document.getElementById('policeLocation').value;
+    const suspectDescription = document.getElementById('suspectDescription').value;
+    const details = document.getElementById('policeDetails').value;
+
+    const report = {
+        type: 'police',
+        incidentType: incidentType,
+        location: location,
+        suspectDescription: suspectDescription,
+        details: details,
+        timestamp: new Date()
+    };
+
+    reportData.push(report);
+    displayReportLog();
+    geocodeAndAddMarker(location);
+    generateAIResponse(report);
+    alert('Police report filed!');
+    event.target.reset();
+}
+
+function submitNationalAlert(event) {
+    event.preventDefault();
+
+    const alertType = document.getElementById('alertType').value;
+    const affectedAreas = document.getElementById('affectedAreas').value;
+    const severity = document.getElementById('nationalSeverity').value;
+    const details = document.getElementById('nationalDetails').value;
+
+    const alertMessage = `
+        <h2>NATIONAL ALERT: ${alertType.toUpperCase()}</h2>
+        <p>Affected Areas: ${affectedAreas}</p>
+        <p>Severity: ${severity}</p>
+        <p>${details}</p>
+    `;
+
+    displayAlert(alertMessage);
+
+    const report = {
+        type: 'national',
+        alertType: alertType,
+        affectedAreas: affectedAreas,
+        severity: severity,
+        details: details,
+        timestamp: new Date()
+    };
+
+    reportData.push(report);
+    displayReportLog();
+    generateAIResponse(report);
+    event.target.reset();
+}
+
+function displayAlert(message) {
+    const overlay = document.getElementById('alertOverlay');
+    const alertMessage = document.getElementById('alertMessage');
+    alertMessage.innerHTML = message;
+    overlay.style.display = 'flex';
+
+    setTimeout(() => {
+        overlay.style.display = 'none';
+    }, 5000);
+}
+
+function displayReportLog() {
+    const logEntriesDiv = document.getElementById('logEntries');
+    logEntriesDiv.innerHTML = '';
+
+    if (reportData.length === 0) {
+        logEntriesDiv.innerHTML = '<p>No reports submitted yet.</p>';
+        return;
+    }
+
+    const ul = document.createElement('ul');
+    reportData.forEach(report => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <strong>${report.type.toUpperCase()} Report</strong> - ${report.timestamp.toLocaleString()}<br>
+            ${report.type === 'weather' ? `Weather: ${report.weatherType}` : ''}
+            ${report.type === 'police' ? `Incident: ${report.incidentType}` : ''}
+            ${report.type === 'national' ? `Alert: ${report.alertType}` : ''}
+            ${report.location ? `<br>Location: ${report.location}` : ''}
+            ${report.details ? `<br>Details: ${report.details}` : ''}
+        `;
+        ul.appendChild(li);
+    });
+    logEntriesDiv.appendChild(ul);
+}
+
+function geocodeAndAddMarker(location) {
+    const geocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json?access_token=${mapboxgl.accessToken}`;
+
+    fetch(geocodingUrl)
+        .then(response => response.json())
+        .then(data => {
+            if (data.features.length > 0) {
+                const coordinates = data.features[0].center;
+                new mapboxgl.Marker()
+                    .setLngLat(coordinates)
+                    .addTo(map);
+            } else {
+                console.error('Location not found:', location);
+                alert(`Location "${location}" not found. Please check the address and try again.`);
+            }
+        })
+        .catch(error => {
+            console.error('Geocoding error:', error);
+            alert('An error occurred while processing the location. Please try again later.');
+        });
+}
+
+function generateAIResponse(report) {
+    setTimeout(() => {
+        let response = "";
+
+        if (report.type === 'weather') {
+            response += `Weather alert received for ${report.location}.\n`;
+            response += `The AI system is analyzing the severity of the ${report.weatherType}...\n\n`;
+            const evacuated = Math.floor(Math.random() * 5000) + 1000;
+            response += `Estimated ${evacuated} people have been evacuated from the affected area.\n\n`;
+            const mayorStatements = [
+                `"This is a serious situation, but we are taking all necessary precautions."`,
+                `"We urge all citizens to follow evacuation orders and stay safe."`,
+                `"Our emergency responders are working tirelessly to ensure everyone's safety."`
+            ];
+            const randomStatement = mayorStatements[Math.floor(Math.random() * mayorStatements.length)];
+            response += `Mayor's statement: ${randomStatement}\n`;
+        } else if (report.type === 'police') {
+            response += `Police report received for ${report.location}.\n`;
+            response += `The AI system is dispatching units to the ${report.incidentType}...\n\n`;
+            const responseTime = Math.floor(Math.random() * 10) + 5;
+            response += `Estimated response time: ${responseTime} minutes.\n`;
+        } else if (report.type === 'national') {
+            response += `National alert received: ${report.alertType.toUpperCase()}\n`;
+            response += `The AI system is coordinating emergency response efforts across all affected areas...\n\n`;
+            response += `Federal agencies have been mobilized to provide assistance.\n`;
+        }
+
+        document.getElementById('aiResponse').innerText = response;
+
+    }, 1000);
+}
+// Add this code to your JavaScript section
+map.on('click', (e) => {
+    // Add a red dot marker at the clicked location
+    new mapboxgl.Marker({ color: 'red' })
+        .setLngLat(e.lngLat)
+        .addTo(map);
+
+    // Reverse geocode the coordinates to get the state
+    const geocodingUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${e.lngLat.lng},${e.lngLat.lat}.json?access_token=${mapboxgl.accessToken}`;
+
+    fetch(geocodingUrl)
+        .then(response => response.json())
+        .then(data => {
+            if (data.features.length > 0) {
+                const state = data.features[0].context.find(c => c.id.startsWith('region')).text;
+
+                // Set the state in the weather form
+                document.getElementById('weatherLocation').value = state;
+
+                // Set the state in the police form
+                document.getElementById('policeLocation').value = state;
+            } else {
+                console.error('State not found for coordinates:', e.lngLat);
+            }
+        })
+        .catch(error => console.error('Geocoding error:', error));
+});
+</script>
+
+</body>
+</html>
